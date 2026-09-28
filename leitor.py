@@ -238,31 +238,53 @@ def montar_string(digs: list[Digito]) -> tuple[str, int]:
 
 
 def fracao_vermelha(img: np.ndarray, d: Digito) -> float:
-    """Fração de pixels vermelhos no dígito (número vermelho ou fundo vermelho)."""
+    """Fração de pixels avermelhados no dígito (número vermelho ou fundo vermelho).
+    Usa vermelho RELATIVO (R bem maior que G e B), que funciona com traço fino,
+    luz amarelada e foto escura."""
     H, W = img.shape[:2]
-    mx, my = d.w * 0.15, d.h * 0.15
+    mx, my = d.w * 0.08, d.h * 0.08
     x1, y1 = int(max(0, d.x1 + mx)), int(max(0, d.y1 + my))
     x2, y2 = int(min(W, d.x2 - mx)), int(min(H, d.y2 - my))
     if x2 - x1 < 2 or y2 - y1 < 2:
         return 0.0
-    hsv = cv2.cvtColor(img[y1:y2, x1:x2], cv2.COLOR_BGR2HSV)
-    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    vermelho = ((h <= 10) | (h >= 165)) & (s >= 90) & (v >= 70)
-    return float(vermelho.mean())
+    c = img[y1:y2, x1:x2].astype(np.int32)
+    b, g, r = c[..., 0], c[..., 1], c[..., 2]
+    return float(((r - np.maximum(g, b) > 35) & (r > 60)).mean())
 
 
-def inteiros_pela_cor(img: np.ndarray, digs: list[Digito], s: str) -> int | None:
-    """Quantos caracteres de `s` são a parte inteira (m³): tudo antes do bloco
-    final de dígitos vermelhos. None se não houver padrão preto+vermelho."""
-    verm = [fracao_vermelha(img, d) > 0.06 for d in digs]
-    k = 0
-    while k < len(verm) and verm[-1 - k]:
-        k += 1
-    if k == 0 or k == len(verm) or k > 4 or any(verm[:-k]):
-        return None
-    # posição em `s` do primeiro dígito vermelho (s pode conter '?')
-    idx_digito = [i for i, ch in enumerate(s) if ch != "?"]
-    return idx_digito[len(digs) - k]
+# Padrão dos hidrômetros brasileiros: total de dígitos -> dígitos vermelhos
+# (6 = 4 pretos + 2 vermelhos; 8 = 5 pretos + 3 vermelhos)
+VERMELHOS_PADRAO = {6: 2, 8: 3}
+
+
+def inteiros_pela_cor(img: np.ndarray, digs: list[Digito], s: str) -> tuple[int | None, str]:
+    """Quantos caracteres de `s` são a parte inteira (m³): tudo antes dos dígitos
+    vermelhos. Retorna (posição da vírgula ou None, origem: 'cor'|'padrao'|'')."""
+    # posição de cada dígito detectado dentro de `s` (s pode conter '?')
+    pos = [i for i, ch in enumerate(s) if ch != "?"]
+    sc = [fracao_vermelha(img, d) for d in digs]
+    n = len(s)
+
+    k0 = VERMELHOS_PADRAO.get(n)
+    if k0:
+        pre = [x for p, x in zip(pos, sc) if p < n - k0]
+        suf = [x for p, x in zip(pos, sc) if p >= n - k0]
+        if pre and suf and max(suf) > max(pre) + 0.003 and np.mean(suf) > np.mean(pre):
+            return n - k0, "cor"
+
+    # busca geral: últimos k dígitos claramente mais vermelhos que os anteriores
+    melhor: tuple[int, float] | None = None
+    for k in range(1, min(4, len(sc) - 2) + 1):
+        pre, suf = sc[:-k], sc[-k:]
+        if min(suf) > max(0.01, 2.5 * max(pre)):
+            folga = min(suf) - max(pre)
+            if melhor is None or folga > melhor[1]:
+                melhor = (pos[len(sc) - k], folga)
+    if melhor:
+        return melhor[0], "cor"
+    if k0:
+        return n - k0, "padrao"
+    return None, ""
 
 
 # ---------------------------------------------------------------------------
@@ -379,9 +401,11 @@ class LeitorHidrometro:
 
         ni = c.get("digitos_inteiros")
         if ni == "auto":
-            ni = inteiros_pela_cor(img, digs, s)
+            ni, origem = inteiros_pela_cor(img, digs, s)
             if ni is None:
                 res.avisos.append("não identifiquei os dígitos vermelhos - sem vírgula")
+            elif origem == "padrao":
+                res.avisos.append("vírgula pela quantidade de dígitos (cor inconclusiva)")
         if isinstance(ni, int) and 0 < ni < len(s) and (not n_esp or len(s) == n_esp):
             res.leitura = f"{s[:ni]},{s[ni:]}"
         else:
