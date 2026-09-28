@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+
+# Pesos e treinos (grandes; recriados com treinar.py)
+*.pt
+runs/
+weights/
+modelos/*
+!modelos/LEIA-ME.txt
+
+# Gerados (recriados com preparar_dataset.py / ler_hidrometro.py)
+dataset_preparado/
+resultados/
+
+# Fotos (não versionadas - repositório público)
+imagens_treino/*
+!imagens_treino/LEIA-ME.txt
+imagens_entrada/*
+!imagens_entrada/LEIA-ME.txt
+
+# Datasets: só as anotações em texto do rotular.py
+dataset/*
+!dataset/proprio/
+dataset/proprio/*
+!dataset/proprio/anotacoes.json
+!dataset/proprio/data.yaml

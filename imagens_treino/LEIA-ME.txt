@@ -1,0 +1,3 @@
+Fotos de hidrometro AINDA SEM ROTULO, para anotar.
+Rode:  python rotular.py
+As anotacoes vao para dataset/proprio/

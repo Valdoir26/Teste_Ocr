@@ -1,0 +1,5 @@
+{
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.extraPaths": ["."],
+    "python.analysis.exclude": ["dataset", "dataset_preparado", "runs"]
+}

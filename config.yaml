@@ -1,0 +1,53 @@
+# =====================================================================
+#  CONFIGURAÇÃO - Leitura de Hidrômetros com YOLO
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# TREINAMENTO
+# ---------------------------------------------------------------------
+treino:
+  # Modelo base. Opções (do mais leve ao mais preciso):
+  #   yolo26n.pt | yolo26s.pt | yolo26m.pt | yolo26l.pt
+  # Para GPU de 6 GB (RTX 3050), yolo26s é o melhor equilíbrio.
+  # Se tiver bastante imagens (>2000) e tempo, experimente yolo26m.pt.
+  modelo_base: yolo26s.pt
+  epocas: 200
+  paciencia: 40          # para antes se não melhorar por N épocas
+  imgsz: 640             # aumente para 800/960 se os dígitos forem muito pequenos na foto
+  batch: -1              # -1 = automático (usa ~60% da memória da GPU)
+  workers: 4
+  nome_experimento: hidrometro
+
+# ---------------------------------------------------------------------
+# LEITURA (inferência)
+# ---------------------------------------------------------------------
+leitura:
+  # Modelo treinado (gerado pelo treinar.py)
+  modelo: modelos/hidrometro_best.pt
+
+  imgsz: 640
+  confianca_minima: 0.25   # confiança mínima para aceitar um dígito
+  iou_duplicado: 0.45      # sobreposição para considerar 2 caixas o mesmo dígito
+
+  # Quantidade total de dígitos do mostrador (ex.: 8 = 5 pretos + 3 vermelhos).
+  # Use null para aceitar qualquer quantidade.
+  num_digitos: null
+
+  # Onde colocar a vírgula (parte inteira = m³, pretos; decimais = vermelhos):
+  #   auto -> detecta os dígitos vermelhos pela cor (serve p/ vários modelos)
+  #   5    -> número fixo de dígitos inteiros. Ex.: "00123,456"
+  #   null -> não separa
+  digitos_inteiros: auto
+
+  # Dígito "rolando" (meio entre dois números, ex.: entre 3 e 4):
+  #   menor      -> usa o menor (padrão das concessionárias)
+  #   confianca  -> usa o de maior confiança
+  regra_digito_rolando: menor
+
+  # Usa recorte do visor (2 etapas) quando o modelo tiver a classe do visor
+  usar_recorte_visor: true
+  margem_recorte: 0.15     # margem extra em volta do visor (15%)
+
+  pasta_entrada: imagens_entrada
+  pasta_saida: resultados
+  salvar_imagem_anotada: true

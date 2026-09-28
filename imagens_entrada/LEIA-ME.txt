@@ -1,0 +1,3 @@
+Coloque aqui as fotos dos hidrometros que devem ser lidas (.jpg, .png, ...).
+Depois rode:  python ler_hidrometro.py
+Os resultados vao para a pasta resultados/
